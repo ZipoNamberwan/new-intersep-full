@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { router } from '@/router';
 import { fetchWrapper } from '@/utils/helpers/fetch-wrapper';
+import { initializeCsrfToken, makeRequest } from '@/api/api';
 
 const baseUrl = `${import.meta.env.VITE_API_URL}/users`;
 
@@ -15,14 +16,20 @@ export const useAuthStore = defineStore({
   }),
   actions: {
     async login(username: string, password: string) {
-      const user = await fetchWrapper.post(`${baseUrl}/authenticate`, { username, password });
+      // const user = await fetchWrapper.post(`${baseUrl}/authenticate`, { username, password });
 
-      // update pinia state
-      this.user = user;
-      // store user details and jwt in local storage to keep user logged in between page refreshes
-      localStorage.setItem('user', JSON.stringify(user));
-      // redirect to previous url or default to home page
-      router.push(this.returnUrl || '/dashboard');
+      // // update pinia state
+      // this.user = user;
+      // // store user details and jwt in local storage to keep user logged in between page refreshes
+      // localStorage.setItem('user', JSON.stringify(user));
+      // // redirect to previous url or default to home page
+      // router.push(this.returnUrl || '/dashboard');
+
+      await initializeCsrfToken();
+
+      await makeRequest.post('/login', { username: username, password: password }).then(async response => {
+        console.log(response)
+      });
     },
     logout() {
       this.user = null;
