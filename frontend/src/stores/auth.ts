@@ -27,7 +27,7 @@ export const useAuthStore = defineStore({
 
       await initializeCsrfToken();
 
-      await makeRequest.post('/login', { username: username, password: password }).then(async response => {
+      await makeRequest.post('/login', { email: username, password: password }).then(async response => {
         console.log(response)
       });
     },

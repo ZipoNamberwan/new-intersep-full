@@ -35,9 +35,9 @@ export default defineConfig({
     exclude: ['vuetify'],
     entries: ['./src/**/*.vue']
   },
-  server: {
-    host: '127.0.0.10',
-    port: 8005,
-    open: true, // This will automatically open the browser with the specified address
-  },
+  // server: {
+  //   host: '127.0.0.10',
+  //   port: 8005,
+  //   open: true, // This will automatically open the browser with the specified address
+  // },
 });
