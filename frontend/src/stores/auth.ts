@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { router } from '@/router';
 import { fetchWrapper } from '@/utils/helpers/fetch-wrapper';
-import { initializeCsrfToken, makeRequest } from '@/api/api';
+import { makeRequest } from '@/api/api';
 
 const baseUrl = `${import.meta.env.VITE_API_URL}/users`;
 
@@ -25,10 +25,12 @@ export const useAuthStore = defineStore({
       // // redirect to previous url or default to home page
       // router.push(this.returnUrl || '/dashboard');
 
-      await initializeCsrfToken();
+      let test = new FormData()
+      test.append('email', username)
+      test.append('password', password)
 
-      await makeRequest.post('/login', { email: username, password: password }).then(async response => {
-        console.log(response)
+      await makeRequest.post('/api/login', test).then(async response => {
+        localStorage.setItem('token', response.data.access_token);
       });
     },
     logout() {
