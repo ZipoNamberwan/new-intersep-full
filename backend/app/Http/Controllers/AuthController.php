@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
+use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Tymon\JWTAuth\Facades\JWTAuth;
 
 class AuthController extends Controller
@@ -16,12 +19,18 @@ class AuthController extends Controller
         $request->validated();
 
         $credentials = $request->only('email', 'password');
-
+        $token = null;
         if (!$token = JWTAuth::attempt($credentials)) {
-            return response()->json(['error' => 'Unauthorized'], 401);
+            throw new HttpResponseException(response([
+                "errors" => [
+                    "message" => ["Username or password wrong"]
+                ]
+            ], 401));
         }
+        $user = User::where(['email' => $request->email])->first();
+        $user->access_token = $token;
 
-        return $this->respondWithToken($token);
+        return new UserResource($user);
     }
 
     public function register(Request $request)
