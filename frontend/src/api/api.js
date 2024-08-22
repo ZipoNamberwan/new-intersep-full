@@ -9,7 +9,7 @@ const makeRequest = axios.create({
 
 // Add a request interceptor to include the token in every request
 makeRequest.interceptors.request.use(config => {
-    const token = localStorage.getItem('token'); // Retrieve the token from local storage
+    const token = localStorage.getItem('user')?.token; // Retrieve the token from local storage
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -24,7 +24,9 @@ makeRequest.interceptors.response.use(response => {
     const newToken = response.headers['authorization'];
     if (newToken) {
         // Store the new token in local storage
-        localStorage.setItem('token', newToken);
+        let user = JSON.parse(localStorage.getItem('user'));
+        user.token = newToken;
+        localStorage.setItem('user', JSON.stringify(user));
         // Update Axios default headers with the new token
         makeRequest.defaults.headers.common['Authorization'] = newToken;
     }
@@ -33,8 +35,8 @@ makeRequest.interceptors.response.use(response => {
     if (error.response.status === 401) {
         // Handle token expiration (e.g., redirect to login)
         alert('Session expired. Please log in again.');
-        localStorage.removeItem('token'); // Remove the expired token
-        window.location.href = '/login'; // Redirect to login page
+        localStorage.removeItem('user'); // Remove the expired token
+        window.location.href = '/auth/login'; // Redirect to login page
     }
     return Promise.reject(error);
 });

@@ -28,7 +28,7 @@ class AuthController extends Controller
             ], 401));
         }
         $user = User::where(['email' => $request->email])->first();
-        $user->access_token = $token;
+        $user->token = $token;
 
         return new UserResource($user);
     }

@@ -30,9 +30,9 @@ export interface menu {
 const sidebarItem: menu[] = [
   { header: 'Navigation' },
   {
-    title: 'Dashboard',
+    title: 'Direktori',
     icon: DashboardOutlined,
-    to: '/dashboard'
+    to: '/directory'
   },
   { header: 'Authentication' },
   {
