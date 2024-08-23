@@ -13,8 +13,8 @@ class SurveySeeder extends Seeder
      */
     public function run(): void
     {
-        Survey::create(['Survey 1']);
-        Survey::create(['Survey 2']);
-        Survey::create(['Survey 3']);
+        Survey::create(['name' => 'Survey 1']);
+        Survey::create(['name' => 'Survey 2']);
+        Survey::create(['name' => 'Survey 3']);
     }
 }
