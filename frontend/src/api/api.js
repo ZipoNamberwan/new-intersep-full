@@ -9,7 +9,7 @@ const makeRequest = axios.create({
 
 // Add a request interceptor to include the token in every request
 makeRequest.interceptors.request.use(config => {
-    const token = localStorage.getItem('user')?.token; // Retrieve the token from local storage
+    const token = JSON.parse(localStorage.getItem('user'))?.token; // Retrieve the token from local storage
     if (token) {
         config.headers['Authorization'] = `Bearer ${token}`;
     }

@@ -33,9 +33,9 @@ export const useAuthStore = defineStore({
       await axios.create({
         baseURL: import.meta.env.VITE_API_URL,
         withCredentials: true
-      }).post('/api/login', data).then(async response => {
-        this.user = response.data;
-        localStorage.setItem('user', JSON.stringify(response.data));
+      }).post('login', data).then(async response => {
+        this.user = response.data.data;
+        localStorage.setItem('user', JSON.stringify(response.data.data));
 
         router.push(this.returnUrl || '/dashboard');
       }).catch((error) => {

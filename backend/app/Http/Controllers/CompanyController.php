@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Resources\CompanyResource;
 use App\Models\Company;
 use Illuminate\Http\Request;
 
@@ -12,24 +13,32 @@ class CompanyController extends Controller
      */
     public function index(Request $request)
     {
-        // Initialize the query
         $query = Company::query();
 
-        // Apply filtering by area if provided
+        // Apply filtering based on request inputs
+        if ($request->has('name')) {
+            $query->where('name', 'like', '%' . $request->input('name') . '%');
+        }
+
         if ($request->has('area')) {
             $query->where('area', $request->input('area'));
         }
 
-        // Apply filtering by type if provided
         if ($request->has('type')) {
             $query->where('type', $request->input('type'));
         }
 
-        // Paginate the results, default to 15 per page if not specified
-        $companies = $query->paginate($request->input('per_page', 15));
+        // You can add more filters as needed...
 
-        // Return the paginated result
-        return response()->json($companies);
+        // Eager load the subsectors relationship
+        $query->with('subsectors');
+        $query->with('surveys');
+
+        // Apply pagination
+        $companies = $query->paginate(10); // Adjust the number for pagination size
+
+        // Return a resource collection with pagination
+        return CompanyResource::collection($companies);
     }
 
     /**
