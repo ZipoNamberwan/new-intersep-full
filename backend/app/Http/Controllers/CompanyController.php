@@ -35,7 +35,7 @@ class CompanyController extends Controller
         $query->with('surveys');
 
         // Apply pagination
-        $companies = $query->paginate(10); // Adjust the number for pagination size
+        $companies = $query->paginate($request->pageSize ?? 10); // Adjust the number for pagination size
 
         // Return a resource collection with pagination
         return CompanyResource::collection($companies);
