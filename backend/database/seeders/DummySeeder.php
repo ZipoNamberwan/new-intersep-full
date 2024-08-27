@@ -13,18 +13,16 @@ class DummySeeder extends Seeder
      */
     public function run(): void
     {
-        for ($i = 0; $i < 200; $i++) {
-            Company::create([
-                'name' => fake()->company(),
-                'id_sbr' => fake()->numberBetween(1000, 9999),
-                'kab' => 13,
-                'kab_name' => 'Probolinggo',
-                'kec' => 010,
-                'kec_name' => 'Sukapura',
-                'des' => 001,
-                'des_name' => 'Sukapura',
-                'address' => fake()->address(),
-            ]);
-        }
+        // for ($i = 0; $i < 200; $i++) {
+        //     Company::create([
+        //         'name' => fake()->company(),
+        //         'id_sbr' => fake()->numberBetween(1000, 9999),
+        //         'kab' => fake()->numberBetween(1, 38),
+        //         'kec' => fake()->numberBetween(1, 600),
+        //         'des' => fake()->numberBetween(1, 600),
+        //         'bs' => fake()->numberBetween(1, 600),
+        //         'address' => fake()->address(),
+        //     ]);
+        // }
     }
 }

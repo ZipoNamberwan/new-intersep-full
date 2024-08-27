@@ -22,6 +22,6 @@ class DatabaseSeeder extends Seeder
             'password' => Hash::make('password')
         ]);
 
-        $this->call([SubsectorSeeder::class, SurveySeeder::class, DummySeeder::class]);
+        $this->call([MasterSeeder::class, SubsectorSeeder::class, SurveySeeder::class, DummySeeder::class]);
     }
 }

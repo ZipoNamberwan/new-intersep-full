@@ -12,6 +12,35 @@ return new class extends Migration
     public function up(): void
     {
 
+        Schema::create('kabupaten', function (Blueprint $table) {
+            $table->id()->autoincrement();
+            $table->string('short_code');
+            $table->string('long_code')->unique();
+            $table->string('name');
+        });
+        Schema::create('kecamatan', function (Blueprint $table) {
+            $table->id()->autoincrement();
+            $table->string('short_code');
+            $table->string('long_code')->unique();
+            $table->string('name');
+            $table->foreignId('kab_id')->constrained('kabupaten');
+        });
+        Schema::create('desa', function (Blueprint $table) {
+            $table->id()->autoincrement();
+            $table->string('short_code');
+            $table->string('long_code')->unique();
+            $table->string('name');
+            $table->integer('klas');
+            $table->foreignId('kec_id')->constrained('kecamatan');
+        });
+        Schema::create('bs', function (Blueprint $table) {
+            $table->id()->autoincrement();
+            $table->string('short_code');
+            $table->string('long_code')->unique();
+            $table->string('name');
+            $table->foreignId('des_id')->constrained('desa');
+        });
+
         Schema::create('subsectors', function (Blueprint $table) {
             $table->id();
             $table->string('name');
@@ -27,11 +56,9 @@ return new class extends Migration
             $table->string('id_sbr')->nullable();
             $table->string('name');
             $table->string('kab')->nullable();
-            $table->string('kab_name')->nullable();
             $table->string('kec')->nullable();
-            $table->string('kec_name')->nullable();
             $table->string('des')->nullable();
-            $table->string('des_name')->nullable();
+            $table->string('bs')->nullable();
             $table->string('address')->nullable();
             $table->string('coordinate')->nullable();
         });
