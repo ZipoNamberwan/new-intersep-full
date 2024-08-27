@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\CompanyRequest;
 use App\Http\Resources\CompanyResource;
 use App\Models\Company;
 use Illuminate\Http\Request;
@@ -16,16 +17,22 @@ class CompanyController extends Controller
         $query = Company::query();
 
         // Apply filtering based on request inputs
-        if ($request->has('name')) {
-            $query->where('name', 'like', '%' . $request->input('name') . '%');
+        if ($request->has('keyword')) {
+            $query->where('name', 'like', '%' . $request->input('keyword') . '%')->orWhere('address', 'like', '%' . $request->input('keyword') . '%');
         }
 
-        if ($request->has('area')) {
-            $query->where('area', $request->input('area'));
+        if ($request->has('subsectors')) {
+            $subsectorIds = $request->input('subsectors');
+            $query->whereHas('subsectors', function ($query) use ($subsectorIds) {
+                $query->whereIn('subsector_id', $subsectorIds);
+            });
         }
 
-        if ($request->has('type')) {
-            $query->where('type', $request->input('type'));
+        if ($request->has('surveys')) {
+            $surveyIds = $request->input('surveys');
+            $query->whereHas('surveys', function ($query) use ($surveyIds) {
+                $query->whereIn('survey_id', $surveyIds);
+            });
         }
 
         // You can add more filters as needed...
@@ -52,9 +59,23 @@ class CompanyController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(CompanyRequest $request)
     {
-        //
+        $request->validated();
+
+        $company = Company::create([
+            'id_sbr' => $request->id_sbr,
+            'name' => $request->name,
+            'kab' => $request->kab,
+            'kec' => $request->kec,
+            'des' => $request->des,
+            'bs' => $request->bs,
+            'address' => $request->address,
+            'xcoordinate' => $request->xcoordinate,
+            'ycoordinate' => $request->ycoordinate,
+        ]);
+
+        return new CompanyResource($company);
     }
 
     /**

@@ -55,12 +55,13 @@ return new class extends Migration
             $table->id();
             $table->string('id_sbr')->nullable();
             $table->string('name');
-            $table->string('kab')->nullable();
+            $table->string('kab');
             $table->string('kec')->nullable();
             $table->string('des')->nullable();
             $table->string('bs')->nullable();
             $table->string('address')->nullable();
-            $table->string('coordinate')->nullable();
+            $table->string('xcoordinate')->nullable();
+            $table->string('ycoordinate')->nullable();
         });
 
         Schema::create('commodities', function (Blueprint $table) {

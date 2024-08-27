@@ -5,6 +5,7 @@ import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { makeRequest } from '@/api/api';
 import { PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons-vue';
+import type { Ref } from 'vue';
 
 interface FilterOption {
     label: string;
@@ -40,15 +41,17 @@ const pagination = ref({
     pageSizeOptions: ['10', '20', '50'], // Customize the page size options here
 });
 const openAddModal = ref(false);
+
 const selectedKabFilters = ref();
 const kabFilters = ref<FilterOption[]>([]);
 const loadingKabFilters = ref<boolean>(false);
 const selectedKecFilters = ref();
 const kecFilters = ref<FilterOption[]>([]);
-const loadingKecFilters = ref<Boolean>(false);
+const loadingKecFilters = ref<boolean>(false);
 const selectedDesFilters = ref();
 const desFilters = ref<FilterOption[]>([]);
-const loadingDesFilters = ref<Boolean>(false);
+const loadingDesFilters = ref<boolean>(false);
+
 
 const formState = reactive({
     id_sbr: '',
@@ -85,76 +88,42 @@ function loadItems({ page, itemsPerPage, sortBy }: { page: number; itemsPerPage:
     });
 }
 
-function handleKabFilterChange(value: any) {
-    getKecFilter(value)
-    selectedKecFilters.value = null
-    selectedDesFilters.value = null
-}
-function handleKecFilterChange(value: any) {
-    getDesFilter(value)
-    selectedDesFilters.value = null
-}
-const handleKabFiltersClear = () => {
-    selectedKecFilters.value = null
-    selectedDesFilters.value = null
-};
-const handleKecFiltersClear = () => {
-    selectedDesFilters.value = null
+const clearFilters = (filters: Array<Ref>, values: Array<Ref>) => {
+    filters.forEach(filter => filter.value = []);
+    values.forEach(value => value.value = null);
 };
 
-function getKabFilter() {
-    loadingKabFilters.value = true;
-    makeRequest.get('kab').then(async response => {
-        response.data.data.forEach((kab: any) => {
-            kabFilters.value.push({
-                label: '[' + kab.short_code + '] ' + kab.name,
-                value: kab.id
-            })
-        });
-        loadingKabFilters.value = false;
-    }).catch((error) => {
-        loadingKabFilters.value = false;
-    });
-}
-
-function getKecFilter(idKab: string) {
-    kecFilters.value = []
-    desFilters.value = []
-    if (idKab != null) {
-        loadingKecFilters.value = true;
-
-        makeRequest.get('kec/' + idKab).then(async response => {
-            response.data.data.forEach((kec: any) => {
-                kecFilters.value.push({
-                    label: '[' + kec.short_code + '] ' + kec.name,
-                    value: kec.id
-                })
-            });
-            loadingKecFilters.value = false;
-        }).catch((error) => {
-            loadingKecFilters.value = false;
-        });
+const handleFilterChange = (value: any, nextFilterFn: (id: string) => void, filtersToClear: Array<Ref>, valuesToClear: Array<Ref>) => {
+    clearFilters(filtersToClear, valuesToClear);
+    if (value) {
+        nextFilterFn(value);
     }
-}
+};
 
-function getDesFilter(idKec: string) {
-    desFilters.value = []
-    if (idKec != null) {
-        loadingDesFilters.value = true;
-
-        makeRequest.get('des/' + idKec).then(async response => {
-            response.data.data.forEach((des: any) => {
-                desFilters.value.push({
-                    label: '[' + des.short_code + '] ' + des.name,
-                    value: des.id
-                })
-            });
-            loadingDesFilters.value = false;
-        }).catch((error) => {
-            loadingDesFilters.value = false;
-        });
+const loadFilterOptions = async (url: string, targetFilter: Ref<FilterOption[]>, loadingFlag: Ref<boolean>) => {
+    loadingFlag.value = true;
+    try {
+        const response = await makeRequest.get(url);
+        targetFilter.value = response.data.data.map((item: any) => ({
+            label: `[${item.short_code}] ${item.name}`,
+            value: item.id
+        }));
+    } catch (error) {
+        console.error(error);
+    } finally {
+        loadingFlag.value = false;
     }
-}
+};
+
+const getKabFilter = () => loadFilterOptions('kab', kabFilters, loadingKabFilters);
+const getKecFilter = (idKab: string) => loadFilterOptions(`kec/${idKab}`, kecFilters, loadingKecFilters);
+const getDesFilter = (idKec: string) => loadFilterOptions(`des/${idKec}`, desFilters, loadingDesFilters);
+
+const handleKabFilterChange = (value: any) => handleFilterChange(value, getKecFilter, [kecFilters, desFilters], [selectedKecFilters, selectedDesFilters]);
+const handleKecFilterChange = (value: any) => handleFilterChange(value, getDesFilter, [desFilters], [selectedDesFilters]);
+
+const handleKabFiltersClear = () => clearFilters([kecFilters, desFilters], [selectedKecFilters, selectedDesFilters]);
+const handleKecFiltersClear = () => clearFilters([desFilters], [selectedDesFilters]);
 
 function handleTableChange(newPagination: any, filters: any, sorter: any, extra: any) {
     pagination.value = newPagination
