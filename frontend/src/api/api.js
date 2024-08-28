@@ -20,12 +20,14 @@ makeRequest.interceptors.request.use(config => {
 
 // Add a response interceptor to handle token renewal
 makeRequest.interceptors.response.use(response => {
+
     // Check if the response contains a new token
     const newToken = response.headers['authorization'];
     if (newToken) {
         // Store the new token in local storage
         let user = JSON.parse(localStorage.getItem('user'));
         user.token = newToken;
+
         localStorage.setItem('user', JSON.stringify(user));
         // Update Axios default headers with the new token
         makeRequest.defaults.headers.common['Authorization'] = newToken;

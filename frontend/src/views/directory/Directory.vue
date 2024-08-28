@@ -12,6 +12,18 @@ interface FilterOption {
     value: string;
 }
 
+interface FormData {
+    id_sbr: string,
+    name: string,
+    kabupaten?: number,
+    kecamatan?: number,
+    desa?: number,
+    bs?: number,
+    address?: string,
+    subsectors: [],
+    surveys: [],
+}
+
 const page = ref({ title: 'Direktori Perusahaan Pertanian' });
 const breadcrumbs = shallowRef([
     {
@@ -29,6 +41,7 @@ const columns = [
     { title: 'Maps', key: 'coordinate', dataIndex: 'coordinate', align: 'center', },
     { title: 'Subsector', key: 'subsectors', dataIndex: 'subsectors', align: 'center', },
     { title: 'Survey', key: 'surveys', dataIndex: 'surveys', align: 'center', },
+    { title: 'Aksi', key: 'id', dataIndex: 'id', align: 'center', },
 ];
 
 const itemsPerPage = ref(20);
@@ -52,49 +65,56 @@ const selectedDesFilters = ref();
 const desFilters = ref<FilterOption[]>([]);
 const loadingDesFilters = ref<boolean>(false);
 
+const kecFiltersForm = ref<FilterOption[]>([]);
+const loadingKecFiltersForm = ref<boolean>(false);
+const desFiltersForm = ref<FilterOption[]>([]);
+const loadingDesFiltersForm = ref<boolean>(false);
+const bsFiltersForm = ref<FilterOption[]>([]);
+const loadingBsFiltersForm = ref<boolean>(false);
 
-const formState = reactive({
+const subsectorFilter = ref();
+const surveyFilter = ref();
+const loadingMaster = ref<boolean>(false);
+
+const confirmLoading = ref<boolean>(false);
+
+const formState = reactive<FormData>({
     id_sbr: '',
     name: '',
-    kabupaten: null,
-    kecamatan: null,
-    desa: null,
+    kabupaten: undefined,
+    kecamatan: undefined,
+    desa: undefined,
+    bs: undefined,
     address: '',
     subsectors: [],
     surveys: [],
 });
 
-function onFinish(value: any) {
-    console.log(value)
-}
-
-function onFinishFailed(errorInfo: any) {
-    console.log(errorInfo)
-}
-
 const showAddModal = () => {
     openAddModal.value = true;
 };
 
-function loadItems({ page, itemsPerPage, sortBy }: { page: number; itemsPerPage: number; sortBy: any }) {
-    loading.value = true;
-
-    makeRequest.get('companies/?page=' + page + '&pageSize=' + itemsPerPage).then(async response => {
-        data.value = response.data.data;
-        loading.value = false;
-        pagination.value.total = response.data.meta.total
-    }).catch((error) => {
-        loading.value = false;
-    });
-}
-
-const clearFilters = (filters: Array<Ref>, values: Array<Ref>) => {
+const clearFiltersFilter = (filters: Array<Ref>, values: Array<Ref>) => {
     filters.forEach(filter => filter.value = []);
     values.forEach(value => value.value = null);
 };
 
-const handleFilterChange = (value: any, nextFilterFn: (id: string) => void, filtersToClear: Array<Ref>, valuesToClear: Array<Ref>) => {
-    clearFilters(filtersToClear, valuesToClear);
+const clearFiltersForm = (filters: Array<Ref>, type: string) => {
+    filters.forEach(filter => filter.value = []);
+    if (type == 'kab') {
+        formState.kecamatan = undefined
+        formState.desa = undefined
+        formState.bs = undefined
+    } else if (type == 'kec') {
+        formState.desa = undefined
+        formState.bs = undefined
+    } else if (type == 'des') {
+        formState.bs = undefined
+    }
+};
+
+const handleFilterChange = (value: any, nextFilterFn: (id: string) => void, clearFiltersFn: () => void) => {
+    clearFiltersFn();
     if (value) {
         nextFilterFn(value);
     }
@@ -115,23 +135,86 @@ const loadFilterOptions = async (url: string, targetFilter: Ref<FilterOption[]>,
     }
 };
 
+const getMaster = async () => {
+    loadingMaster.value = true
+    try {
+        const subsectorsResponse = await makeRequest.get('subsectors');
+        subsectorFilter.value = subsectorsResponse.data.data.map((item: any) => ({
+            label: item.name,
+            value: item.id
+        }));
+
+        const surveysResponse = await makeRequest.get('surveys');
+        surveyFilter.value = surveysResponse.data.data.map((item: any) => ({
+            label: item.name,
+            value: item.id
+        }));
+
+    } catch (error) {
+        console.error(error);
+    } finally {
+        loadingMaster.value = false
+    }
+};
+
 const getKabFilter = () => loadFilterOptions('kab', kabFilters, loadingKabFilters);
-const getKecFilter = (idKab: string) => loadFilterOptions(`kec/${idKab}`, kecFilters, loadingKecFilters);
-const getDesFilter = (idKec: string) => loadFilterOptions(`des/${idKec}`, desFilters, loadingDesFilters);
 
-const handleKabFilterChange = (value: any) => handleFilterChange(value, getKecFilter, [kecFilters, desFilters], [selectedKecFilters, selectedDesFilters]);
-const handleKecFilterChange = (value: any) => handleFilterChange(value, getDesFilter, [desFilters], [selectedDesFilters]);
+const handleKabFilterChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`kec/${value}`, kecFilters, loadingKecFilters), () => clearFiltersFilter([kecFilters, desFilters], [selectedKecFilters, selectedDesFilters]),);
+const handleKecFilterChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`des/${value}`, desFilters, loadingDesFilters), () => clearFiltersFilter([desFilters], [selectedDesFilters]));
 
-const handleKabFiltersClear = () => clearFilters([kecFilters, desFilters], [selectedKecFilters, selectedDesFilters]);
-const handleKecFiltersClear = () => clearFilters([desFilters], [selectedDesFilters]);
+const handleKabFormChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`kec/${value}`, kecFiltersForm, loadingKecFiltersForm), () => clearFiltersForm([kecFiltersForm, desFiltersForm, bsFiltersForm], 'kab'),);
+const handleKecFormChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`des/${value}`, desFiltersForm, loadingDesFiltersForm), () => clearFiltersForm([desFiltersForm, bsFiltersForm], 'kec'));
+const handleDesFormChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`bs/${value}`, bsFiltersForm, loadingBsFiltersForm), () => clearFiltersForm([bsFiltersForm], 'des'));
+
+function loadItems({ page, itemsPerPage, sortBy }: { page: number; itemsPerPage: number; sortBy: any }) {
+    loading.value = true;
+
+    makeRequest.get('companies/?page=' + page + '&pageSize=' + itemsPerPage).then(async response => {
+        data.value = response.data.data;
+        loading.value = false;
+        pagination.value.total = response.data.meta.total
+    }).catch((error) => {
+        loading.value = false;
+    });
+}
 
 function handleTableChange(newPagination: any, filters: any, sorter: any, extra: any) {
     pagination.value = newPagination
     loadItems({ page: pagination.value.current, itemsPerPage: pagination.value.pageSize, sortBy: [] });
 }
 
+const submitForm = async () => {
+    confirmLoading.value = true;
+    try {
+        let formData = new FormData();
+        formData.append('id_sbr', formState.id_sbr)
+        formData.append('name', formState.name)
+        formData.append('kab', `${formState.kabupaten}`)
+        if (formState.kecamatan) {
+            formData.append('kec', `${formState.kecamatan}`)
+        }
+        if (formState.desa) {
+            formData.append('des', `${formState.desa}`)
+        }
+        if (formState.bs) {
+            formData.append('bs', `${formState.bs}`)
+        }
+        formData.append('address', `${formState.address}`)
+        formData.append('subsectors', JSON.stringify(formState.subsectors))
+        formData.append('surveys', JSON.stringify(formState.surveys))
+
+        await makeRequest.post('companies', formData);
+    } catch (error) {
+        console.error(error);
+    } finally {
+        confirmLoading.value = false;
+    }
+};
+
 loadItems({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] });
 getKabFilter()
+getMaster()
+
 </script>
 
 <template>
@@ -155,10 +238,10 @@ getKabFilter()
                             Refresh
                         </v-btn> </template>
                 </a-alert>
-                <a-modal v-model:open="openAddModal" title="Tambah Perusahaan">
+                <a-modal :confirm-loading="confirmLoading" @ok="submitForm" v-model:open="openAddModal"
+                    title="Tambah Perusahaan">
                     <a-form labelAlign="left" class="mt-4" :model="formState" name="basic" :label-col="{ span: 8 }"
-                        :wrapper-col="{ span: 16 }" autocomplete="off" @finish="onFinish"
-                        @finishFailed="onFinishFailed">
+                        :wrapper-col="{ span: 16 }" autocomplete="off">
                         <a-form-item label="ID SBR" name="id_sbr">
                             <a-input placeholder="ID SBR" v-model:value="formState.id_sbr" />
                         </a-form-item>
@@ -168,32 +251,37 @@ getKabFilter()
                         </a-form-item>
                         <a-form-item label="Kabupaten" name="kabupaten"
                             :rules="[{ required: true, message: 'Kabupaten belum terisi' }]">
-                            <a-select ref="select" v-model:value="formState.kabupaten" class="mb-1" allowClear
-                                style="width: 100%" placeholder="Kabupaten"
-                                :options="[...Array(25)].map((_, i) => ({ value: (i + 10).toString(36) + (i + 1) }))"></a-select>
+                            <a-select ref="select" @change="handleKabFormChange" v-model:value="formState.kabupaten"
+                                :loading="loadingKabFilters" class="mb-1" allowClear style="width: 100%"
+                                placeholder="Kabupaten" :options="kabFilters"></a-select>
                         </a-form-item>
                         <a-form-item label="Kecamatan" name="kecamatan">
-                            <a-select ref="select" v-model:value="formState.kecamatan" class="mb-1" allowClear
-                                style="width: 100%" placeholder="Kecamatan"
-                                :options="[...Array(25)].map((_, i) => ({ value: (i + 10).toString(36) + (i + 1) }))"></a-select>
+                            <a-select ref="select" @change="handleKecFormChange" v-model:value="formState.kecamatan"
+                                :loading="loadingKecFiltersForm" class="mb-1" allowClear style="width: 100%"
+                                placeholder="Kecamatan" :options="kecFiltersForm"></a-select>
                         </a-form-item>
                         <a-form-item label="Desa" name="desa">
-                            <a-select ref="select" v-model:value="formState.desa" class="mb-1" allowClear
-                                style="width: 100%" placeholder="Desa"
-                                :options="[...Array(25)].map((_, i) => ({ value: (i + 10).toString(36) + (i + 1) }))"></a-select>
+                            <a-select ref="select" @change="handleDesFormChange" v-model:value="formState.desa"
+                                class="mb-1" allowClear :loading="loadingDesFiltersForm" style="width: 100%"
+                                placeholder="Desa" :options="desFiltersForm"></a-select>
+                        </a-form-item>
+                        <a-form-item label="Blok Sensus" name="bs">
+                            <a-select ref="select" v-model:value="formState.bs" class="mb-1" allowClear
+                                :loading="loadingBsFiltersForm" style="width: 100%" placeholder="Blok Sensus"
+                                :options="bsFiltersForm"></a-select>
                         </a-form-item>
                         <a-form-item label="Alamat" name="address">
                             <a-textarea v-model:value="formState.address" placeholder="Alamat Perusahaan"
                                 :auto-size="{ minRows: 3, maxRows: 5 }" />
                         </a-form-item>
                         <a-form-item label="Subsektor" name="subsectors">
-                            <a-select allowClear mode="multiple" style="width: 100%" placeholder="Subsektor"
-                                :options="[...Array(25)].map((_, i) => ({ value: (i + 10).toString(36) + (i + 1) }))"></a-select>
+                            <a-select v-model:value="formState.subsectors" allowClear mode="multiple"
+                                style="width: 100%" placeholder="Subsektor" :options="subsectorFilter"></a-select>
 
                         </a-form-item>
                         <a-form-item label="Survey" name="surveys">
-                            <a-select allowClear mode="multiple" style="width: 100%" placeholder="Survey"
-                                :options="[...Array(25)].map((_, i) => ({ value: (i + 10).toString(36) + (i + 1) }))"></a-select>
+                            <a-select v-model:value="formState.surveys" allowClear mode="multiple" style="width: 100%"
+                                placeholder="Survey" :options="surveyFilter"></a-select>
                         </a-form-item>
                     </a-form>
                 </a-modal>
@@ -215,14 +303,14 @@ getKabFilter()
         </v-row>
         <v-row class="mb-3">
             <v-col cols="12" sm="12" md="4" lg="2">
-                <a-select @clear="handleKabFiltersClear" v-model:value="selectedKabFilters"
-                    @change="handleKabFilterChange" :loading="loadingKabFilters" allowClear style="width: 100%"
-                    placeholder="Kabupaten" :options="kabFilters"></a-select>
+                <a-select @change="handleKabFilterChange" v-model:value="selectedKabFilters"
+                    :loading="loadingKabFilters" allowClear style="width: 100%" placeholder="Kabupaten"
+                    :options="kabFilters"></a-select>
             </v-col>
             <v-col cols="12" sm="12" md="4" lg="2">
-                <a-select @clear="handleKecFiltersClear" v-model:value="selectedKecFilters"
-                    @change="handleKecFilterChange" :loading="loadingKecFilters" allowClear style="width: 100%"
-                    placeholder="Kecamatan" :options="kecFilters"></a-select>
+                <a-select @change="handleKecFilterChange" v-model:value="selectedKecFilters"
+                    :loading="loadingKecFilters" allowClear style="width: 100%" placeholder="Kecamatan"
+                    :options="kecFilters"></a-select>
             </v-col>
             <v-col cols="12" sm="12" md="4" lg="2">
                 <a-select v-model:value="selectedDesFilters" :loading="loadingDesFilters" allowClear style="width: 100%"
@@ -233,11 +321,25 @@ getKabFilter()
         <a-table :scroll="{ x: 1000, y: 1000 }" :loading="loading" :columns="columns" :data-source="data"
             :pagination="pagination" @change="handleTableChange">
             <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'subsector'">
-                    <a-tag v-for="tag in record.subsector" :key="tag"
-                        :color="tag === 'loser' ? 'volcano' : tag.length > 5 ? 'geekblue' : 'green'">
-                        {{ tag.toUpperCase() }}
+                <template v-if="column.key === 'subsectors'">
+                    <a-tag v-for="subsector in record.subsectors" :key="subsector" :color="'green'">
+                        {{ subsector.name }}
                     </a-tag>
+                </template>
+                <template v-if="column.key === 'surveys'">
+                    <a-tag v-for="survey in record.surveys" :key="survey" :color="'green'">
+                        {{ survey.name }}
+                    </a-tag>
+                </template>
+                <template v-if="column.key === 'kab'">
+                    <a-space direction="vertical">
+                        <a-typography-text>[{{ record.kab.short_code }}] {{ record.kab.name }}</a-typography-text>
+                        <a-typography-text v-if="record.kec">[{{ record.kec.short_code }}] {{ record.kec.name
+                            }}</a-typography-text>
+                        <a-typography-text v-if="record.des">[{{ record.des.short_code }}] {{ record.des.name
+                            }}</a-typography-text>
+                        <a-typography-text v-if="record.bs">{{ record.bs.name }}</a-typography-text>
+                    </a-space>
                 </template>
             </template>
         </a-table>
