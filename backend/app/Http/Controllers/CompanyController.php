@@ -18,21 +18,46 @@ class CompanyController extends Controller
 
         // Apply filtering based on request inputs
         if ($request->has('keyword')) {
-            $query->where('name', 'like', '%' . $request->input('keyword') . '%')->orWhere('address', 'like', '%' . $request->input('keyword') . '%');
+            $query->where('name', 'like', '%' . $request->input('keyword') . '%')
+                ->orWhere('address', 'like', '%' . $request->input('keyword') . '%')
+                ->orWhere('id_sbr', 'like', '%' . $request->input('keyword') . '%');
         }
 
         if ($request->has('subsectors')) {
-            $subsectorIds = $request->input('subsectors');
+            $subsectorIds = json_decode($request->input('subsectors'));
             $query->whereHas('subsectors', function ($query) use ($subsectorIds) {
                 $query->whereIn('subsector_id', $subsectorIds);
             });
         }
 
         if ($request->has('surveys')) {
-            $surveyIds = $request->input('surveys');
+            $surveyIds = json_decode($request->input('surveys'));
             $query->whereHas('surveys', function ($query) use ($surveyIds) {
                 $query->whereIn('survey_id', $surveyIds);
             });
+        }
+
+        if ($request->has('kab')) {
+            $query->where(['kab_id' => $request->input('kab')]);
+        }
+        if ($request->has('kec')) {
+            $query->where(['kec_id' => $request->input('kec')]);
+        }
+        if ($request->has('des')) {
+            $query->where(['des_id' => $request->input('des')]);
+        }
+        if ($request->has('sortField') && $request->has('sortOrder')) {
+            $order = '';
+            if ($request->input('sortOrder') == 'ascend') {
+                $order = 'asc';
+            } else {
+                $order = 'desc';
+            }
+            $field = $request->input('sortField');
+            if ($request->input('sortField') == 'kab') {
+                $field = 'kab_id';
+            }
+            $query->orderBy($field, $order);
         }
 
         // Eager load the subsectors relationship

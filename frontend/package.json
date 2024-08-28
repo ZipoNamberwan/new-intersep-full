@@ -29,6 +29,7 @@
     "apexcharts": "3.49.1",
     "axios": "^1.7.3",
     "js-cookie": "^3.0.5",
+    "lodash": "^4.17.21",
     "pinia": "2.1.7",
     "vee-validate": "4.12.8",
     "vite-plugin-vuetify": "2.0.3",
@@ -43,6 +44,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.1.1",
+    "@types/lodash": "^4.17.7",
     "@types/node": "20.12.11",
     "@vitejs/plugin-vue": "5.0.4",
     "@vue/eslint-config-prettier": "8.0.0",

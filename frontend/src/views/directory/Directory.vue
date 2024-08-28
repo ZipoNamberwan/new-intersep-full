@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { h, reactive, ref, shallowRef } from 'vue';
+import { reactive, ref, shallowRef, watch } from 'vue';
 
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { makeRequest } from '@/api/api';
 import { PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 import type { Ref } from 'vue';
+import { debounce } from 'lodash';
 
 interface FilterOption {
     label: string;
@@ -35,9 +36,9 @@ const breadcrumbs = shallowRef([
 
 const columns = [
     { title: 'ID Perusahaan', key: 'id_sbr', dataIndex: 'id_sbr', align: 'center', },
-    { title: 'Nama', key: 'name', dataIndex: 'name', align: 'left', sorter: (a: any, b: any) => a.name.localeCompare(b.name), },
-    { title: 'Wilayah', key: 'kab', dataIndex: 'kab', align: 'center', sorter: (a: any, b: any) => a.name.localeCompare(b.name), },
-    { title: 'Alamat', key: 'address', dataIndex: 'address', align: 'left', },
+    { title: 'Nama', key: 'name', dataIndex: 'name', align: 'left', sorter: true, },
+    { title: 'Wilayah', key: 'kab', dataIndex: 'kab', align: 'center', sorter: true, },
+    { title: 'Alamat', key: 'address', dataIndex: 'address', align: 'left', sorter: true, },
     { title: 'Maps', key: 'coordinate', dataIndex: 'coordinate', align: 'center', },
     { title: 'Subsector', key: 'subsectors', dataIndex: 'subsectors', align: 'center', },
     { title: 'Survey', key: 'surveys', dataIndex: 'surveys', align: 'center', },
@@ -51,17 +52,22 @@ const pagination = ref({
     current: 1,
     pageSize: 10,
     total: 0,
-    pageSizeOptions: ['10', '20', '50'], // Customize the page size options here
+    pageSizeOptions: [10, 20, 50],
+});
+
+const sort = ref<{ field?: string, order?: string, }>({
+    field: undefined,
+    order: undefined,
 });
 const openAddModal = ref(false);
 
-const selectedKabFilters = ref();
+const selectedKabFilters = ref<number>();
 const kabFilters = ref<FilterOption[]>([]);
 const loadingKabFilters = ref<boolean>(false);
-const selectedKecFilters = ref();
+const selectedKecFilters = ref<number>();
 const kecFilters = ref<FilterOption[]>([]);
 const loadingKecFilters = ref<boolean>(false);
-const selectedDesFilters = ref();
+const selectedDesFilters = ref<number>();
 const desFilters = ref<FilterOption[]>([]);
 const loadingDesFilters = ref<boolean>(false);
 
@@ -77,6 +83,10 @@ const surveyFilter = ref();
 const loadingMaster = ref<boolean>(false);
 
 const confirmLoading = ref<boolean>(false);
+
+const selectedSubsectorFilter = ref<number[]>([]);
+const selectedSurveyFilter = ref<number[]>([]);
+const keywordFilter = ref();
 
 const formState = reactive<FormData>({
     id_sbr: '',
@@ -135,7 +145,7 @@ const loadFilterOptions = async (url: string, targetFilter: Ref<FilterOption[]>,
     }
 };
 
-const getMaster = async () => {
+const loadMaster = async () => {
     loadingMaster.value = true
     try {
         const subsectorsResponse = await makeRequest.get('subsectors');
@@ -157,19 +167,59 @@ const getMaster = async () => {
     }
 };
 
-const getKabFilter = () => loadFilterOptions('kab', kabFilters, loadingKabFilters);
+const loadKabFilter = () => loadFilterOptions('kab', kabFilters, loadingKabFilters);
 
-const handleKabFilterChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`kec/${value}`, kecFilters, loadingKecFilters), () => clearFiltersFilter([kecFilters, desFilters], [selectedKecFilters, selectedDesFilters]),);
-const handleKecFilterChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`des/${value}`, desFilters, loadingDesFilters), () => clearFiltersFilter([desFilters], [selectedDesFilters]));
+const handleKabFilterChange = (value: any) => {
+    handleFilterChange(value, (value) => loadFilterOptions(`kec/${value}`, kecFilters, loadingKecFilters), () => clearFiltersFilter([kecFilters, desFilters], [selectedKecFilters, selectedDesFilters]),);
+    loadCompanies();
+};
+const handleKecFilterChange = (value: any) => {
+    handleFilterChange(value, (value) => loadFilterOptions(`des/${value}`, desFilters, loadingDesFilters), () => clearFiltersFilter([desFilters], [selectedDesFilters]));
+    loadCompanies();
+}
 
 const handleKabFormChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`kec/${value}`, kecFiltersForm, loadingKecFiltersForm), () => clearFiltersForm([kecFiltersForm, desFiltersForm, bsFiltersForm], 'kab'),);
 const handleKecFormChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`des/${value}`, desFiltersForm, loadingDesFiltersForm), () => clearFiltersForm([desFiltersForm, bsFiltersForm], 'kec'));
 const handleDesFormChange = (value: any) => handleFilterChange(value, (value) => loadFilterOptions(`bs/${value}`, bsFiltersForm, loadingBsFiltersForm), () => clearFiltersForm([bsFiltersForm], 'des'));
 
-function loadItems({ page, itemsPerPage, sortBy }: { page: number; itemsPerPage: number; sortBy: any }) {
-    loading.value = true;
+function loadCompanies() {
 
-    makeRequest.get('companies/?page=' + page + '&pageSize=' + itemsPerPage).then(async response => {
+    let page: number = pagination.value.current
+    let itemsPerPage: number = pagination.value.pageSize
+
+    let sortBy = []
+    loading.value = true;
+    let subsectorsUrl: string = ''
+    if (selectedSubsectorFilter.value.length > 0) {
+        subsectorsUrl = '&subsectors=' + JSON.stringify(selectedSubsectorFilter.value)
+    }
+    let surveysUrl: string = ''
+    if (selectedSurveyFilter.value.length > 0) {
+        surveysUrl = '&surveys=' + JSON.stringify(selectedSurveyFilter.value)
+    }
+    let kabUrl: string = ''
+    if (selectedKabFilters.value) {
+        kabUrl = '&kab=' + selectedKabFilters.value
+    }
+    let kecUrl: string = ''
+    if (selectedKecFilters.value) {
+        kecUrl = '&kec=' + selectedKecFilters.value
+    }
+    let desUrl: string = ''
+    if (selectedDesFilters.value) {
+        desUrl = '&des=' + selectedDesFilters.value
+    }
+    let keywordUrl: string = ''
+    if (keywordFilter.value) {
+        keywordUrl = '&keyword=' + keywordFilter.value
+    }
+    let sortUrl: string = ''
+    if (sort.value.field && sort.value.order) {
+        sortUrl = '&sortField=' + sort.value.field + '&sortOrder=' + sort.value.order
+    }
+    makeRequest.get('companies/?page=' + page + '&pageSize=' + itemsPerPage
+        + subsectorsUrl + surveysUrl + kabUrl + kecUrl + desUrl + keywordUrl + sortUrl
+    ).then(async response => {
         data.value = response.data.data;
         loading.value = false;
         pagination.value.total = response.data.meta.total
@@ -180,7 +230,8 @@ function loadItems({ page, itemsPerPage, sortBy }: { page: number; itemsPerPage:
 
 function handleTableChange(newPagination: any, filters: any, sorter: any, extra: any) {
     pagination.value = newPagination
-    loadItems({ page: pagination.value.current, itemsPerPage: pagination.value.pageSize, sortBy: [] });
+    sort.value = sorter
+    loadCompanies();
 }
 
 const submitForm = async () => {
@@ -204,6 +255,10 @@ const submitForm = async () => {
         formData.append('surveys', JSON.stringify(formState.surveys))
 
         await makeRequest.post('companies', formData);
+
+        openAddModal.value = false;
+
+        loadCompanies()
     } catch (error) {
         console.error(error);
     } finally {
@@ -211,9 +266,17 @@ const submitForm = async () => {
     }
 };
 
-loadItems({ page: 1, itemsPerPage: itemsPerPage.value, sortBy: [] });
-getKabFilter()
-getMaster()
+const debouncedKeywordFilter = debounce((value: string) => {
+    loadCompanies()
+}, 500);
+
+watch(keywordFilter, (newValue) => {
+    debouncedKeywordFilter(newValue);
+});
+
+loadCompanies();
+loadKabFilter()
+loadMaster()
 
 </script>
 
@@ -289,15 +352,15 @@ getMaster()
         </v-row>
         <v-row>
             <v-col cols="12" sm="12" md="6" lg="3">
-                <a-input-search allowClear placeholder="Pencarian" />
+                <a-input-search v-model:value="keywordFilter" allowClear placeholder="Pencarian" />
             </v-col>
             <v-col cols="12" sm="12" md="6" lg="3">
-                <a-select allowClear mode="multiple" style="width: 100%" placeholder="Subsector"
-                    :options="[...Array(25)].map((_, i) => ({ value: (i + 10).toString(36) + (i + 1) }))"></a-select>
+                <a-select @change="loadCompanies" v-model:value="selectedSubsectorFilter" allowClear mode="multiple"
+                    style="width: 100%" placeholder="Subsector" :options="subsectorFilter"></a-select>
             </v-col>
             <v-col cols="12" sm="12" md="6" lg="3">
-                <a-select allowClear mode="multiple" style="width: 100%" placeholder="Survey"
-                    :options="[...Array(25)].map((_, i) => ({ value: (i + 10).toString(36) + (i + 1) }))"></a-select>
+                <a-select @change="loadCompanies" v-model:value="selectedSurveyFilter" allowClear mode="multiple"
+                    style="width: 100%" placeholder="Survey" :options="surveyFilter"></a-select>
             </v-col>
             <v-spacer></v-spacer>
         </v-row>
@@ -313,8 +376,8 @@ getMaster()
                     :options="kecFilters"></a-select>
             </v-col>
             <v-col cols="12" sm="12" md="4" lg="2">
-                <a-select v-model:value="selectedDesFilters" :loading="loadingDesFilters" allowClear style="width: 100%"
-                    placeholder="Desa" :options="desFilters"></a-select>
+                <a-select @change="loadCompanies" v-model:value="selectedDesFilters" :loading="loadingDesFilters"
+                    allowClear style="width: 100%" placeholder="Desa" :options="desFilters"></a-select>
             </v-col>
             <v-spacer></v-spacer>
         </v-row>
