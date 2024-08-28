@@ -12,6 +12,23 @@ class Company extends Model
     public $timestamps = false;
     protected $table = 'companies';
 
+    public function kab()
+    {
+        return $this->belongsTo(Kabupaten::class, 'kab_id');
+    }
+    public function kec()
+    {
+        return $this->belongsTo(Kecamatan::class, 'kec_id');
+    }
+    public function des()
+    {
+        return $this->belongsTo(Desa::class, 'des_id');
+    }
+    public function bs()
+    {
+        return $this->belongsTo(Bs::class, 'bs_id');
+    }
+
     public function subsectors()
     {
         return $this->belongsToMany(Subsector::class);

@@ -3,6 +3,8 @@
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\AreaController;
+use App\Http\Controllers\SubsectorController;
+use App\Http\Controllers\SurveyController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login']);
@@ -16,5 +18,7 @@ Route::middleware('check.jwt')->group(function () {
     Route::get('/bs/{idDes}', [AreaController::class, 'getBsByDes']);
 
     Route::resource('companies', CompanyController::class);
+    Route::resource('surveys', SurveyController::class);
+    Route::resource('subsectors', SubsectorController::class);
 
 });

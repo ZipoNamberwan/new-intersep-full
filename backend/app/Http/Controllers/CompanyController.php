@@ -35,11 +35,8 @@ class CompanyController extends Controller
             });
         }
 
-        // You can add more filters as needed...
-
         // Eager load the subsectors relationship
-        $query->with('subsectors');
-        $query->with('surveys');
+        $query->with(['subsectors', 'surveys', 'kab', 'kec', 'des', 'bs']);
 
         // Apply pagination
         $companies = $query->paginate($request->pageSize ?? 10); // Adjust the number for pagination size
@@ -66,14 +63,18 @@ class CompanyController extends Controller
         $company = Company::create([
             'id_sbr' => $request->id_sbr,
             'name' => $request->name,
-            'kab' => $request->kab,
-            'kec' => $request->kec,
-            'des' => $request->des,
-            'bs' => $request->bs,
+            'kab_id' => $request->kab,
+            'kec_id' => $request->kec,
+            'des_id' => $request->des,
+            'bs_id' => $request->bs,
             'address' => $request->address,
             'xcoordinate' => $request->xcoordinate,
             'ycoordinate' => $request->ycoordinate,
         ]);
+
+        $company->surveys()->sync(json_decode($request->surveys, true));
+        $company->subsectors()->sync(json_decode($request->subsectors, true));
+        $company->load('subsectors', 'surveys');
 
         return new CompanyResource($company);
     }

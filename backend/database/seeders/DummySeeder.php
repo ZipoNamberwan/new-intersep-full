@@ -3,6 +3,8 @@
 namespace Database\Seeders;
 
 use App\Models\Company;
+use App\Models\Subsector;
+use App\Models\Survey;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -24,5 +26,14 @@ class DummySeeder extends Seeder
         //         'address' => fake()->address(),
         //     ]);
         // }
+
+        Subsector::create(['name' => 'Tanaman Pangan']);
+        Subsector::create(['name' => 'Hortikultura']);
+        Subsector::create(['name' => 'Tanaman Pangan']);
+
+
+        Survey::create(['name' => 'Ubinan']);
+        Survey::create(['name' => 'KSA']);
+        Survey::create(['name' => 'VHTS']);
     }
 }
