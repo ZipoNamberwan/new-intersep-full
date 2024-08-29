@@ -4,9 +4,10 @@ import { reactive, ref, shallowRef, watch } from 'vue';
 import BaseBreadcrumb from '@/components/shared/BaseBreadcrumb.vue';
 import UiParentCard from '@/components/shared/UiParentCard.vue';
 import { makeRequest } from '@/api/api';
-import { PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons-vue';
+import { CloudUploadOutlined, EditFilled, PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons-vue';
 import type { Ref } from 'vue';
 import { debounce } from 'lodash';
+import type { FormInstance, Rule } from 'ant-design-vue/es/form';
 
 interface FilterOption {
     label: string;
@@ -14,6 +15,7 @@ interface FilterOption {
 }
 
 interface FormData {
+    id: string,
     id_sbr: string,
     name: string,
     kabupaten?: number,
@@ -45,8 +47,10 @@ const columns = [
     { title: 'Aksi', key: 'id', dataIndex: 'id', align: 'center', },
 ];
 
-const itemsPerPage = ref(20);
-const loading = ref(false);
+
+const loading = ref<boolean>(false);
+const isErrorData = ref<boolean>(false);
+
 const data = ref([]);
 const pagination = ref({
     current: 1,
@@ -81,14 +85,17 @@ const loadingBsFiltersForm = ref<boolean>(false);
 const subsectorFilter = ref();
 const surveyFilter = ref();
 const loadingMaster = ref<boolean>(false);
+const isErrorMaster = ref<boolean>(false);
 
 const confirmLoading = ref<boolean>(false);
+const isErrorForm = ref<boolean>(false);
 
 const selectedSubsectorFilter = ref<number[]>([]);
 const selectedSurveyFilter = ref<number[]>([]);
 const keywordFilter = ref();
 
 const formState = reactive<FormData>({
+    id: '',
     id_sbr: '',
     name: '',
     kabupaten: undefined,
@@ -99,6 +106,7 @@ const formState = reactive<FormData>({
     subsectors: [],
     surveys: [],
 });
+const formRef = ref<FormInstance>();
 
 const showAddModal = () => {
     openAddModal.value = true;
@@ -132,6 +140,7 @@ const handleFilterChange = (value: any, nextFilterFn: (id: string) => void, clea
 
 const loadFilterOptions = async (url: string, targetFilter: Ref<FilterOption[]>, loadingFlag: Ref<boolean>) => {
     loadingFlag.value = true;
+
     try {
         const response = await makeRequest.get(url);
         targetFilter.value = response.data.data.map((item: any) => ({
@@ -139,7 +148,7 @@ const loadFilterOptions = async (url: string, targetFilter: Ref<FilterOption[]>,
             value: item.id
         }));
     } catch (error) {
-        console.error(error);
+        console.log(error)
     } finally {
         loadingFlag.value = false;
     }
@@ -147,6 +156,7 @@ const loadFilterOptions = async (url: string, targetFilter: Ref<FilterOption[]>,
 
 const loadMaster = async () => {
     loadingMaster.value = true
+    isErrorMaster.value = false
     try {
         const subsectorsResponse = await makeRequest.get('subsectors');
         subsectorFilter.value = subsectorsResponse.data.data.map((item: any) => ({
@@ -161,7 +171,7 @@ const loadMaster = async () => {
         }));
 
     } catch (error) {
-        console.error(error);
+        isErrorMaster.value = true
     } finally {
         loadingMaster.value = false
     }
@@ -189,6 +199,8 @@ function loadCompanies() {
 
     let sortBy = []
     loading.value = true;
+    isErrorData.value = false;
+
     let subsectorsUrl: string = ''
     if (selectedSubsectorFilter.value.length > 0) {
         subsectorsUrl = '&subsectors=' + JSON.stringify(selectedSubsectorFilter.value)
@@ -225,6 +237,7 @@ function loadCompanies() {
         pagination.value.total = response.data.meta.total
     }).catch((error) => {
         loading.value = false;
+        isErrorData.value = true;
     });
 }
 
@@ -235,35 +248,73 @@ function handleTableChange(newPagination: any, filters: any, sorter: any, extra:
 }
 
 const submitForm = async () => {
-    confirmLoading.value = true;
+
     try {
-        let formData = new FormData();
-        formData.append('id_sbr', formState.id_sbr)
-        formData.append('name', formState.name)
-        formData.append('kab', `${formState.kabupaten}`)
-        if (formState.kecamatan) {
-            formData.append('kec', `${formState.kecamatan}`)
-        }
-        if (formState.desa) {
-            formData.append('des', `${formState.desa}`)
-        }
-        if (formState.bs) {
-            formData.append('bs', `${formState.bs}`)
-        }
-        formData.append('address', `${formState.address}`)
-        formData.append('subsectors', JSON.stringify(formState.subsectors))
-        formData.append('surveys', JSON.stringify(formState.surveys))
+        const valid = await formRef.value?.validate();
+        if (valid) {
+            confirmLoading.value = true;
+            isErrorForm.value = false
 
-        await makeRequest.post('companies', formData);
+            try {
+                let formData = new FormData();
+                formData.append('id_sbr', formState.id_sbr)
+                formData.append('name', formState.name)
+                formData.append('kab', `${formState.kabupaten}`)
+                if (formState.kecamatan) {
+                    formData.append('kec', `${formState.kecamatan}`)
+                }
+                if (formState.desa) {
+                    formData.append('des', `${formState.desa}`)
+                }
+                if (formState.bs) {
+                    formData.append('bs', `${formState.bs}`)
+                }
+                formData.append('address', `${formState.address}`)
+                formData.append('subsectors', JSON.stringify(formState.subsectors))
+                formData.append('surveys', JSON.stringify(formState.surveys))
 
-        openAddModal.value = false;
+                await makeRequest.post('companies', formData);
 
-        loadCompanies()
-    } catch (error) {
-        console.error(error);
-    } finally {
-        confirmLoading.value = false;
+                openAddModal.value = false;
+
+                loadCompanies()
+            } catch (error) {
+                isErrorForm.value = true
+            } finally {
+                confirmLoading.value = false;
+                formRef.value?.resetFields();
+                formRef.value?.clearValidate();
+            }
+        }
+    } catch (errors) {
+
     }
+};
+
+const validateName = async (_rule: Rule, value: string) => {
+    if (value === '') {
+        return Promise.reject('Nama perusahaan tidak boleh kosong');
+    } else {
+        if (value.length < 6) {
+            return Promise.reject('Nama perusahaan minimal 5 karakter');
+        }
+        // if (formState.name !== '') {
+        //     await formRef.value?.validateFields(['name']);
+        // }
+    }
+    return Promise.resolve();
+};
+
+const validateKab = async (_rule: Rule, value: string) => {
+    if (value === undefined) {
+        return Promise.reject('Kabupaten tidak boleh kosong');
+    }
+    return Promise.resolve();
+};
+
+const rules: Record<string, Rule[]> = {
+    name: [{ required: true, validator: validateName, trigger: 'change' }],
+    kabupaten: [{ required: true, validator: validateKab, trigger: 'change' }],
 };
 
 const debouncedKeywordFilter = debounce((value: string) => {
@@ -286,15 +337,33 @@ loadMaster()
     <UiParentCard :title="page.title">
         <v-row>
             <v-col>
-                <v-btn @click="showAddModal" color="primary" variant="flat" type="submit">
-                    <template v-slot:prepend>
-                        <PlusCircleOutlined />
-                    </template>
-                    Tambah Perusahaan
-                </v-btn>
-                <a-alert v-if="false" banner class="my-2" message="Gagal Mengambil Data Master" type="error">
+                <a-space direction="horizontal">
+                    <v-btn @click="showAddModal" color="primary" variant="flat">
+                        <template v-slot:prepend>
+                            <PlusCircleOutlined />
+                        </template>
+                        Tambah Perusahaan
+                    </v-btn>
+                    <v-btn color="success" variant="flat">
+                        <template v-slot:prepend>
+                            <CloudUploadOutlined />
+                        </template>
+                        Upload Perusahaan
+                    </v-btn>
+                </a-space>
+                <a-alert v-if="isErrorData" banner class="my-2" message="Gagal Mengambil Data Direktori Perusahaan"
+                    type="error">
                     <template #action>
-                        <v-btn color="error" size="small" variant="flat" type="submit">
+                        <v-btn @click="loadCompanies" color="error" size="small" variant="flat" type="submit">
+                            <template v-slot:prepend>
+                                <ReloadOutlined />
+                            </template>
+                            Refresh
+                        </v-btn> </template>
+                </a-alert>
+                <a-alert v-if="isErrorMaster" banner class="my-2" message="Gagal Mengambil Data Master" type="error">
+                    <template #action>
+                        <v-btn @click="loadMaster" color="error" size="small" variant="flat" type="submit">
                             <template v-slot:prepend>
                                 <ReloadOutlined />
                             </template>
@@ -303,17 +372,25 @@ loadMaster()
                 </a-alert>
                 <a-modal :confirm-loading="confirmLoading" @ok="submitForm" v-model:open="openAddModal"
                     title="Tambah Perusahaan">
-                    <a-form labelAlign="left" class="mt-4" :model="formState" name="basic" :label-col="{ span: 8 }"
-                        :wrapper-col="{ span: 16 }" autocomplete="off">
+                    <a-alert v-if="isErrorForm" banner class="my-2" message="Gagal Menyimpan Data Perusahaan"
+                        type="error">
+                        <template #action>
+                            <v-btn @click="submitForm" color="error" size="small" variant="flat" type="submit">
+                                <template v-slot:prepend>
+                                    <ReloadOutlined />
+                                </template>
+                                Refresh
+                            </v-btn> </template>
+                    </a-alert>
+                    <a-form ref="formRef" :rules="rules" labelAlign="left" class="mt-4" :model="formState" name="basic"
+                        :label-col="{ span: 8 }" :wrapper-col="{ span: 16 }" autocomplete="off">
                         <a-form-item label="ID SBR" name="id_sbr">
                             <a-input placeholder="ID SBR" v-model:value="formState.id_sbr" />
                         </a-form-item>
-                        <a-form-item label="Nama Perusahaan" name="name"
-                            :rules="[{ required: true, message: 'Nama Perusahaan kosong' }]">
+                        <a-form-item has-feedback label="Nama Perusahaan" name="name">
                             <a-input v-model:value="formState.name" placeholder="Nama Perusahaan" />
                         </a-form-item>
-                        <a-form-item label="Kabupaten" name="kabupaten"
-                            :rules="[{ required: true, message: 'Kabupaten belum terisi' }]">
+                        <a-form-item has-feedback label="Kabupaten" name="kabupaten">
                             <a-select ref="select" @change="handleKabFormChange" v-model:value="formState.kabupaten"
                                 :loading="loadingKabFilters" class="mb-1" allowClear style="width: 100%"
                                 placeholder="Kabupaten" :options="kabFilters"></a-select>
@@ -393,6 +470,15 @@ loadMaster()
                     <a-tag v-for="survey in record.surveys" :key="survey" :color="'green'">
                         {{ survey.name }}
                     </a-tag>
+                </template>
+                <template v-if="column.key === 'id'">
+                    <a-tooltip title="Ubah">
+                        <a-button type="primary" shape="circle">
+                            <template v-slot:icon>
+                                <EditFilled />
+                            </template>
+                        </a-button>
+                    </a-tooltip>
                 </template>
                 <template v-if="column.key === 'kab'">
                     <a-space direction="vertical">
