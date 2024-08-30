@@ -112,6 +112,33 @@ const showAddModal = () => {
     openAddModal.value = true;
 };
 
+type Subsector = {
+    id: number;
+    name: string;
+};
+
+const showEditModal = (record: any) => {
+    openAddModal.value = true;
+    formState.id = record.id;
+    formState.id_sbr = record.id_sbr;
+    formState.name = record.name;
+    formState.address = record.address;
+    formState.subsectors = record.subsectors.map((subsector: { id: number; name: string; }) => subsector.id)
+    formState.surveys = record.surveys.map((survey: { id: number; name: string; }) => survey.id)
+
+    formState.kabupaten = record.kab.id;
+    handleKabFormChange(formState.kabupaten)
+    formState.kecamatan = record.kec?.id;
+    if (formState.kecamatan) {
+        handleKecFormChange(formState.kecamatan)
+    }
+    formState.desa = record.des?.id;
+    if (formState.desa) {
+        handleDesFormChange(formState.desa)
+    }
+    formState.bs = record.bs?.id;
+};
+
 const clearFiltersFilter = (filters: Array<Ref>, values: Array<Ref>) => {
     filters.forEach(filter => filter.value = []);
     values.forEach(value => value.value = null);
@@ -197,7 +224,6 @@ function loadCompanies() {
     let page: number = pagination.value.current
     let itemsPerPage: number = pagination.value.pageSize
 
-    let sortBy = []
     loading.value = true;
     isErrorData.value = false;
 
@@ -277,13 +303,14 @@ const submitForm = async () => {
 
                 openAddModal.value = false;
 
+                formRef.value?.resetFields();
+                formRef.value?.clearValidate();
+
                 loadCompanies()
             } catch (error) {
                 isErrorForm.value = true
             } finally {
                 confirmLoading.value = false;
-                formRef.value?.resetFields();
-                formRef.value?.clearValidate();
             }
         }
     } catch (errors) {
@@ -473,7 +500,7 @@ loadMaster()
                 </template>
                 <template v-if="column.key === 'id'">
                     <a-tooltip title="Ubah">
-                        <a-button type="primary" shape="circle">
+                        <a-button @click="() => showEditModal(record)" type="primary" shape="circle">
                             <template v-slot:icon>
                                 <EditFilled />
                             </template>
